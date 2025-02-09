@@ -19,14 +19,18 @@ class PackageController extends Controller
 
     public function view($id)
     {
-        $package = DB::table('package')->where('id', $id)->first();
+        $packages = DB::table('addons')->where('package_id', $id)->get();
+        $packages->map(function($faq) {
+            unset($faq->created_at);
+            unset($faq->updated_at);
+        });
 
-        if(isset($package))
+        if($packages->count() > 0)
         {
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
-                'data' => isset($package->addons) ? json_decode($package->addons) : []
+                'data' => $packages
             ], 200);
         }
         else
