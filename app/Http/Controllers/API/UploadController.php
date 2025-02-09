@@ -11,7 +11,8 @@ class UploadController extends Controller
 {
     public function upload(Request $request)
     {
-        $validator = Validator::make($request->all(), [ 
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
             'doc' => 'required',
         ]);
 
@@ -25,7 +26,7 @@ class UploadController extends Controller
         }
         
         $doc = new Document();
-        $doc->note = $request->note;
+        $doc->email = $request->email;
         $doc->note = $request->note;
         if ($request->hasFile('doc') && $request->file('doc')->isValid()) {
             // if ($request->image->getSize() <= config('constants.image_size_limit')) {
