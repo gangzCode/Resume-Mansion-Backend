@@ -10,6 +10,9 @@ class PackageController extends Controller
     public function index()
     {
         $packages = DB::table('package')->get();
+        $packages->map(function($faq) {
+            $faq->full_description = $this->ul_to_array($faq->full_description);
+        });
         return response()->json([
             'http_status' => 200,
             'http_status_message' => 'Success',
@@ -41,5 +44,10 @@ class PackageController extends Controller
             ], 200);
         }
        
+    }
+
+    public function ul_to_array ($ul) {
+      $str =  str_replace(array('<ul>', '</ul>', '<li>'), '', $ul);
+      return explode('</li>', $str);
     }
 }
