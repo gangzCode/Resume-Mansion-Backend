@@ -105,6 +105,7 @@ class CardController extends Controller
                 $package = DB::table('package')->where('id', $line->pid)->first();
                 $addon = DB::table('addons')->where('id', $line->addon_id)->first();
                 $data = [
+                    'line_id' => $line->id,
                     'package_id' => $line->pid,
                     'package' => isset($package) ? $package->title : '',
                     'addon_id' => $line->addon_id,
@@ -137,5 +138,60 @@ class CardController extends Controller
                 'data' => $lines
             ], 200);
         }
+    }
+
+    public function update(Request $request)
+    {
+        $lines = $request->packages;
+        $order_id = $request->order_id;
+        $transaction = Order::find($order_id);
+        $transaction->total_price = $request->final_total;
+        $transaction->save();
+        foreach($lines ?? [] as $key => $line)
+        {
+            if(isset($line['line_id']))
+            {
+                    $order_line = OrderPackage::find($line['line_id']);
+                    $order_line->quantity = $line['quantity'];
+                    $order_line->save();
+            }
+        }
+
+        return response()->json([
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'transaction_id' => $transaction->id,
+            'message' => 'Success Updated',
+        ], 200);
+    }
+
+    public function delete($id)
+    {
+        $line = OrderPackage::find($id);
+        
+        if(isset($line))
+        {
+            $order_id = $line->oid;
+            $order = Order::find($order_id);
+            $lines = OrderPackage::where('oid', $order_id)->count();
+            if($lines == 1)
+            {
+                $order->delete();
+            }
+            $line->delete();
+
+            return response()->json([
+                'http_status' => 200,
+                'http_status_message' => 'Success',
+                'message' => 'Success Deleted',
+            ], 200);
+
+        }
+
+        return response()->json([
+            'http_status' => 404,
+            'http_status_message' => 'warning',
+            'message' => 'Bad Request',
+        ], 404);
     }
 }
