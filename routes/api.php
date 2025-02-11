@@ -58,5 +58,6 @@ Route::controller(CardController::class)->group(function () {
 Route::middleware(['auth:api'])->group(function(){
     Route::controller(CardController::class)->group(function () {
         Route::post('add-to-cart', 'addCart');
+        Route::get('get-cart', 'getCart');
     });
 });

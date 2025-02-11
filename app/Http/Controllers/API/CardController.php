@@ -84,4 +84,58 @@ class CardController extends Controller
                 'data' => $date
             ], 200);
     }
+
+    public function getCart()
+    {
+        $user = auth()->user()->id;
+        $input['location_id'] = 1;
+        $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
+        $lines = [];
+        if(isset($transaction))
+        {
+            $order_lines = OrderPackage::where('oid', $transaction->id)->get();
+           
+            $lines = [
+                'total' => $transaction->total_price,
+                'currency_code' => $transaction->currency_symbol,
+                'lines' => []
+            ];
+            foreach($order_lines as $line)
+            {
+                $package = DB::table('package')->where('id', $line->pid)->first();
+                $addon = DB::table('addons')->where('id', $line->addon_id)->first();
+                $data = [
+                    'package_id' => $line->pid,
+                    'package' => isset($package) ? $package->title : '',
+                    'addon_id' => $line->addon_id,
+                    'addon' => isset($addon) ? $addon->title : '',
+                    'quantity' => $line->quantity,
+                    'price' => $line->price ?? 0,
+                ];
+
+                array_push($lines['lines'], $data);
+               
+
+            }
+        }
+
+        if(!isset($transaction))
+        {
+            return response()->json([
+                'transaction_id' => 0,
+                'total_amount' => 0,
+                'data' => [],
+                'message' => 'Cart is empty',
+            ], 200);
+        }
+        else 
+        {
+            return response()->json([
+                'http_status' => 200,
+                'http_status_message' => 'Success',
+                'transaction_id' => $transaction->id,
+                'data' => $lines
+            ], 200);
+        }
+    }
 }
