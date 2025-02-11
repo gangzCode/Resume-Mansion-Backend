@@ -194,4 +194,31 @@ class CardController extends Controller
             'message' => 'Bad Request',
         ], 404);
     }
+
+    public function clear($id)
+    {
+        $order = Order::find($id);
+        if(isset($order))
+        {
+            $lines = OrderPackage::where('oid', $order->id)->delete();
+            $order->delete();
+            return response()->json([
+                'http_status' => 200,
+                'http_status_message' => 'Success',
+                'message' => 'Success Deleted',
+            ], 200);
+
+        }
+        return response()->json([
+            'http_status' => 404,
+            'http_status_message' => 'warning',
+            'message' => 'Bad Request',
+        ], 404);  
+
+    }
+
+    public function placeOrder(Request $request)
+    {
+        
+    }
 }

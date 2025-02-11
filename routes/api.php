@@ -61,5 +61,6 @@ Route::middleware(['auth:api'])->group(function(){
         Route::get('get-cart', 'getCart');
         Route::put('cart/update', 'update');
         Route::delete('cart/delete/{id}', 'delete');
+        Route::delete('cart/clear/{id}', 'clear');
     });
 });
