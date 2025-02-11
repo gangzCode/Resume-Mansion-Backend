@@ -7,6 +7,7 @@ use App\Http\Controllers\API\ContactController;
 use App\Http\Controllers\API\ReviewController;
 use App\Http\Controllers\API\PackageController;
 use App\Http\Controllers\API\UploadController;
+use App\Http\Controllers\API\CardController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -50,3 +51,12 @@ Route::controller(LoginController::class)->group(function () {
 });
 
 
+Route::controller(CardController::class)->group(function () {
+    Route::get('coupon', 'getCoupon');
+});
+
+Route::middleware(['auth:api'])->group(function(){
+    Route::controller(CardController::class)->group(function () {
+        Route::post('add-to-cart', 'addCart');
+    });
+});
