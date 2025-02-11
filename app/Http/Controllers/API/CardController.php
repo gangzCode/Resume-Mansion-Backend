@@ -219,6 +219,25 @@ class CardController extends Controller
 
     public function placeOrder(Request $request)
     {
-        
+        $user = auth()->user()->id;
+        $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
+        if(isset($transaction))
+        {
+            $transaction->order_status = '1';
+            $transaction->payment_status = 'paid';
+            $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
+    
+            $transaction->save();
+            return response()->json([
+                'http_status' => 200,
+                'http_status_message' => 'Success',
+                'message' => 'Added Successfully',
+            ], 200);
+        }
+        return response()->json([
+            'http_status' => 404,
+            'http_status_message' => 'Warning',
+            'message' => 'Transaction not Found',
+        ], 404);
     }
 }
