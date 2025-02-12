@@ -96,7 +96,7 @@ class CardController extends Controller
             $order_lines = OrderPackage::where('oid', $transaction->id)->get();
            
             $lines = [
-                'order_id' => $transaction->order_id,
+                'order_id' => $transaction->id,
                 'total' => $transaction->total_price,
                 'currency_code' => $transaction->currency_symbol,
                 'lines' => []
@@ -230,6 +230,24 @@ class CardController extends Controller
             $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
     
             $transaction->save();
+            $packages = $input['packages'];
+            foreach ($packages ?? [] as $pr => $product) {
+                if(isset($product['line_id']))
+                {
+                    $package = OrderPackage::find($product['line_id']);
+                }
+                else
+                {
+                    $package = new OrderPackage();
+                }
+                $package->oid = $transaction->id;
+                $package->pid = $product['package_id'];
+                $package->addon_id = $product['addon_id'];
+                $package->quantity = $product['quantity'];
+                $package->price = $product['amount'];
+                $package->save();
+                
+            }
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
@@ -255,6 +273,24 @@ class CardController extends Controller
             $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
     
             $transaction->save();
+            $packages = $input['packages'];
+            foreach ($packages ?? [] as $pr => $product) {
+                if(isset($product['line_id']))
+                {
+                    $package = OrderPackage::find($product['line_id']);
+                }
+                else
+                {
+                    $package = new OrderPackage();
+                }
+                $package->oid = $transaction->id;
+                $package->pid = $product['package_id'];
+                $package->addon_id = $product['addon_id'];
+                $package->quantity = $product['quantity'];
+                $package->price = $product['amount'];
+                $package->save();
+                
+            }
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
@@ -266,5 +302,32 @@ class CardController extends Controller
             'http_status_message' => 'Warning',
             'message' => 'Transaction not Found',
         ], 404);
+    }
+
+    public function getPrevious()
+    {
+        $user = auth()->user()->id;
+        $transactions = Order::whereNotIn('order_status', [3,1])->where('uid', $user)->get();
+        $orders = [];
+        foreach($transactions as $transaction)
+        {
+            $order_lines = OrderPackage::where('oid', $transaction->id)->unique()->pluck('pid')->toArray();
+            $package = DB::table('package')->whereIn('id', $order_lines)->first();
+            $status =DB::table('order_setps')->where('id', $transaction->order_status)->first();
+           
+            $lines = [
+                'order_id' => $transaction->id,
+                'name' => isset($package) ? $package->title : '',
+                'ID' => 'ORDER #'.$transaction->id,
+                'status' => isset($status) ? $status->step : ''
+            ];
+            array_push($orders, $lines);
+        }
+
+        return response()->json([
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'data'=> $orders
+        ], 200);
     }
 }
