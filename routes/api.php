@@ -63,5 +63,6 @@ Route::middleware(['auth:api'])->group(function(){
         Route::delete('cart/delete/{id}', 'delete');
         Route::delete('cart/clear/{id}', 'clear');
         Route::put('placeorder', 'placeOrder');
+        Route::post('cart/place-order', 'post');
     });
 });

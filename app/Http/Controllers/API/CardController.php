@@ -96,6 +96,7 @@ class CardController extends Controller
             $order_lines = OrderPackage::where('oid', $transaction->id)->get();
            
             $lines = [
+                'order_id' => $transaction->order_id,
                 'total' => $transaction->total_price,
                 'currency_code' => $transaction->currency_symbol,
                 'lines' => []
@@ -219,8 +220,34 @@ class CardController extends Controller
 
     public function placeOrder(Request $request)
     {
+        $order_id = $request->order_id;
         $user = auth()->user()->id;
-        $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
+        $transaction = Order::find($order_id);
+        if(isset($transaction))
+        {
+            $transaction->order_status = '1';
+            $transaction->payment_status = 'paid';
+            $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
+    
+            $transaction->save();
+            return response()->json([
+                'http_status' => 200,
+                'http_status_message' => 'Success',
+                'message' => 'Added Successfully',
+            ], 200);
+        }
+        return response()->json([
+            'http_status' => 404,
+            'http_status_message' => 'Warning',
+            'message' => 'Transaction not Found',
+        ], 404);
+    }
+
+    public function post(Request $request)
+    {
+        $order_id = $request->order_id;
+        $user = auth()->user()->id;
+        $transaction = Order::find($order_id);
         if(isset($transaction))
         {
             $transaction->order_status = '1';
