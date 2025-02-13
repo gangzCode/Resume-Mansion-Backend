@@ -61,7 +61,7 @@ Route::middleware(['auth:api'])->group(function(){
         Route::get('get-cart', 'getCart');
         Route::put('cart/update', 'update');
         Route::delete('cart/delete/{id}', 'delete');
-        Route::delete('cart/clear/{id}', 'clear');
+        Route::delete('cart/clear/', 'clear');
         Route::put('placeorder', 'placeOrder');
         Route::post('cart/place-order', 'post');
         Route::get('previous-orders', 'getPrevious');

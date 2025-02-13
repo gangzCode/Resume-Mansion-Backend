@@ -44,15 +44,15 @@ class CardController extends Controller
 
     public function addCart(Request $request)
     {
- 
         $input = $request->except('_token');
         $input['order_status'] = 3;
-        
+    
         $user = auth()->user()->id;
         $input['location_id'] = 1;
+    
         $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
-        if(!isset($transaction))
-        {
+    
+        if (!isset($transaction)) {
             $transaction = new Order();
             $transaction->uid = $user;
             $transaction->added_by = $user;
@@ -65,7 +65,8 @@ class CardController extends Controller
             $transaction->coupon = $input['coupon_id'] ?? null;
             $transaction->save();
         }
-        if ($input['package_id']) {
+    
+        if (!empty($input['package_id']) && !empty($input['addon_id'])) {
             $package = new OrderPackage();
             $package->oid = $transaction->id;
             $package->pid = $input['package_id'];
@@ -74,19 +75,25 @@ class CardController extends Controller
             $package->price = $input['amount'];
             $package->save();
         }
-        $data = OrderPackage::where('oid', $transaction->id)->get();
-        $data->map(function($item) {
+    
+        $data = !empty($input['addon_id'])
+            ? OrderPackage::where('oid', $transaction->id)->get()
+            : collect([]);
+    
+        $data->map(function ($item) {
             $item->price = (string)$item->price;
         });
-        $date['order'] = $transaction;
-        $date['order_line'] = $data; 
-
+    
         return response()->json([
-                'http_status' => 200,
-                'http_status_message' => 'Success',
-                'data' => $date
-            ], 200);
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'data' => [
+                'order' => $transaction,
+                'order_line' => $data
+            ]
+        ], 200);
     }
+    
 
     public function getCart()
     {
@@ -146,25 +153,45 @@ class CardController extends Controller
 
     public function update(Request $request)
     {
-        $lines = $request->packages;
         $order_id = $request->order_id;
         $transaction = Order::find($order_id);
+        
+        if (!$transaction) {
+            return response()->json([
+                'http_status' => 404,
+                'http_status_message' => 'Order not found'
+            ], 404);
+        }
+    
+        // Update the total price of the order
         $transaction->total_price = $request->final_total;
         $transaction->save();
-        if(isset($request->line_id))
-        {
-                $order_line = OrderPackage::find($request->line_id);
+    
+        // Update the order line where addon_id matches the provided line_id
+        if (isset($request->line_id)) {
+            $order_line = OrderPackage::where('oid', $order_id)
+                                      ->where('addon_id', $request->line_id)
+                                      ->first();
+    
+            if ($order_line) {
                 $order_line->quantity = $request->quantity;
                 $order_line->save();
+            } else {
+                return response()->json([
+                    'http_status' => 404,
+                    'http_status_message' => 'Addon not found in this order'
+                ], 404);
+            }
         }
-
+    
         return response()->json([
             'http_status' => 200,
             'http_status_message' => 'Success',
             'transaction_id' => $transaction->id,
-            'message' => 'Success Updated',
+            'message' => 'Successfully Updated',
         ], 200);
     }
+    
 
     public function delete($id)
     {
@@ -196,27 +223,34 @@ class CardController extends Controller
         ], 404);
     }
 
-    public function clear($id)
+    public function clear(Request $request)
     {
-        $order = Order::find($id);
-        if(isset($order))
-        {
-            $lines = OrderPackage::where('oid', $order->id)->delete();
+        $userId = auth()->user()->id;
+    
+        $order = Order::where('uid', $userId)
+                      ->where('order_status', 3)
+                      ->first();
+    
+        if ($order) {
+            OrderPackage::where('oid', $order->id)->delete();
+            
+            // Delete the order
             $order->delete();
+            
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
-                'message' => 'Success Deleted',
+                'message' => 'Cart successfully cleared',
             ], 200);
-
         }
+    
         return response()->json([
             'http_status' => 404,
             'http_status_message' => 'warning',
-            'message' => 'Bad Request',
-        ], 404);  
-
+            'message' => 'No active cart found for this user',
+        ], 404);
     }
+    
 
     public function placeOrder(Request $request)
     {
