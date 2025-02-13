@@ -62,22 +62,25 @@ class CardController extends Controller
             $transaction->total_price = $input['final_total'];
             $transaction->currency_symbol = $input['currency_symbol'];
             $transaction->currency = $input['currency'];
-            $transaction->coupon = $input['coupon_id'];
+            $transaction->coupon = $input['coupon_id'] ?? null;
             $transaction->save();
         }
-        
-        $packages = $input['packages'];
-        foreach ($packages ?? [] as $pr => $product) {
+        if ($input['package_id']) {
             $package = new OrderPackage();
             $package->oid = $transaction->id;
-            $package->pid = $product['package_id'];
-            $package->addon_id = $product['addon_id'];
-            $package->quantity = $product['quantity'];
-            $package->price = $product['amount'];
+            $package->pid = $input['package_id'];
+            $package->addon_id = $input['addon_id'];
+            $package->quantity = $input['quantity'];
+            $package->price = $input['amount'];
             $package->save();
         }
+        $data = OrderPackage::where('oid', $transaction->id)->get();
+        $data->map(function($item) {
+            $item->price = (string)$item->price;
+        });
         $date['order'] = $transaction;
-        $date['order_line'] = OrderPackage::where('oid', $transaction->id)->get();
+        $date['order_line'] = $data; 
+
         return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
@@ -97,7 +100,7 @@ class CardController extends Controller
            
             $lines = [
                 'order_id' => $transaction->id,
-                'total' => $transaction->total_price,
+                'total' => (string)$transaction->total_price,
                 'currency_code' => $transaction->currency_symbol,
                 'lines' => []
             ];
@@ -112,7 +115,7 @@ class CardController extends Controller
                     'addon_id' => $line->addon_id,
                     'addon' => isset($addon) ? $addon->title : '',
                     'quantity' => $line->quantity,
-                    'price' => $line->price ?? 0,
+                    'price' => (string)$line->price ?? "0,00",
                 ];
 
                 array_push($lines['lines'], $data);
@@ -148,14 +151,11 @@ class CardController extends Controller
         $transaction = Order::find($order_id);
         $transaction->total_price = $request->final_total;
         $transaction->save();
-        foreach($lines ?? [] as $key => $line)
+        if(isset($request->line_id))
         {
-            if(isset($line['line_id']))
-            {
-                    $order_line = OrderPackage::find($line['line_id']);
-                    $order_line->quantity = $line['quantity'];
-                    $order_line->save();
-            }
+                $order_line = OrderPackage::find($request->line_id);
+                $order_line->quantity = $request->quantity;
+                $order_line->save();
         }
 
         return response()->json([
