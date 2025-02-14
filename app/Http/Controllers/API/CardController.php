@@ -135,7 +135,7 @@ class CardController extends Controller
 
     public function update(Request $request)
     {
-        $lines = $request->packages;
+        $input = $request->except('_token');
         $order_id = $request->order_id;
         $transaction = Order::find($order_id);
         $addon_price = $input['quantity'] * $input['amount'];
