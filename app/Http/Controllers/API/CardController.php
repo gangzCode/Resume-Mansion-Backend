@@ -138,8 +138,9 @@ class CardController extends Controller
     {
         $input = $request->except('_token');
         $order_id = $request->order_id;
+        $addon = Addon::find($input['addon_id']);
         $transaction = Order::find($order_id);
-        $addon_price = $input['quantity'] * $input['amount'];
+        $addon_price = $input['quantity'] * $addon->price;
         $transaction->total_price = $addon_price + $transaction->total_price;
         $transaction->save();
         
@@ -151,7 +152,7 @@ class CardController extends Controller
         {
             $package = new OrderPackage();
         }
-        $addon = Addon::find($input['addon_id']);
+        
             
         $package->oid = $transaction->id;
         $package->pid = $transaction->package_id;
@@ -261,9 +262,10 @@ class CardController extends Controller
         {
             $transaction->order_status = '1';
             $transaction->payment_status = 'paid';
-    
+            $transaction->coupon = $request->coupon_id;
             $transaction->save();
             $packages = $input['packages'];
+            $total = 0;
             foreach ($packages ?? [] as $pr => $product) {
                 $addon = Addon::find($product['addon_id']);
                 if(isset($product['line_id']))
@@ -280,8 +282,20 @@ class CardController extends Controller
                 $package->quantity = $product['quantity'];
                 $package->price = $addon->price;
                 $package->save();
-                
+
+                $total += $addon->price;
             }
+
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
+            $sub_total = $package->price + $total;
+            if(isset($request->coupon_id))
+            {
+                $coupon = DB::table('coupon')->where('id', $request->coupon_id)->first();
+                $sub_total = $sub_total - $coupon->price;
+            }
+            
+            $transaction->total_price = $sub_total;
+            $transaction->save();
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
@@ -304,9 +318,10 @@ class CardController extends Controller
         {
             $transaction->order_status = '1';
             $transaction->payment_status = 'paid';
-    
+            $transaction->coupon = $request->coupon_id;
             $transaction->save();
             $packages = $input['packages'];
+            $total = 0;
             foreach ($packages ?? [] as $pr => $product) {
                 $addon = Addon::find($product['addon_id']);
                 if(isset($product['line_id']))
@@ -323,8 +338,20 @@ class CardController extends Controller
                 $package->quantity = $product['quantity'];
                 $package->price = $addon->price;
                 $package->save();
-                
+
+                $total += $addon->price;
             }
+
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
+            $sub_total = $package->price + $total;
+            if(isset($request->coupon_id))
+            {
+                $coupon = DB::table('coupon')->where('id', $request->coupon_id)->first();
+                $sub_total = $sub_total - $coupon->price;
+            }
+            
+            $transaction->total_price = $sub_total;
+            $transaction->save();
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
