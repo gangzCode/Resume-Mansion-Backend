@@ -143,12 +143,8 @@ class CardController extends Controller
         $addon_price = $input['quantity'] * $addon->price;
         $transaction->total_price = $addon_price + $transaction->total_price;
         $transaction->save();
-        
-        if (isset($input['line_id'])) 
-        {
-            $package = OrderPackage::find($input['line_id']); 
-        }
-        else
+        $package = OrderPackage::where('addon_id', $input['addon_id'])->where('oid', $order_id)->first();
+        if (!isset($package))
         {
             $package = new OrderPackage();
         }
