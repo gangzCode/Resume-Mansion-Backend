@@ -50,30 +50,20 @@ class CardController extends Controller
         
         $user = auth()->user()->id;
         $input['location_id'] = 1;
-        $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
-        if(!isset($transaction))
-        {
-            $transaction = new Order();
-            $transaction->uid = $user;
-            $transaction->added_by = $user;
-            $transaction->added_date = date('Y-m-d');
-            $transaction->payment_status = 'due';
-            $transaction->order_status = 3;
-            $transaction->total_price = $input['final_total'];
-            $transaction->currency_symbol = $input['currency_symbol'];
-            $transaction->currency = $input['currency'];
-            $transaction->coupon = $input['coupon_id'] ?? null;
-            $transaction->save();
-        }
-        if ($input['package_id']) {
-            $package = new OrderPackage();
-            $package->oid = $transaction->id;
-            $package->pid = $input['package_id'];
-            $package->addon_id = $input['addon_id'];
-            $package->quantity = $input['quantity'];
-            $package->price = $input['amount'];
-            $package->save();
-        }
+        $package = DB::table('package')->where('id', $input['package_id'])->first();
+        $transaction = new Order();
+        $transaction->uid = $user;
+        $transaction->package_id = $input['package_id'];
+        $transaction->added_by = $user;
+        $transaction->added_date = date('Y-m-d');
+        $transaction->payment_status = 'due';
+        $transaction->order_status = 3;
+        $transaction->total_price = isset($package) ? $package->price : 0;
+        $transaction->currency_symbol = '$';
+        $transaction->currency = 'usd';
+        $transaction->coupon = null;
+        $transaction->save();
+        
         $data = OrderPackage::where('oid', $transaction->id)->get();
         $data->map(function($item) {
             $item->price = (string)$item->price;
@@ -97,21 +87,20 @@ class CardController extends Controller
         if(isset($transaction))
         {
             $order_lines = OrderPackage::where('oid', $transaction->id)->get();
-           
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
             $lines = [
                 'order_id' => $transaction->id,
                 'total' => (string)$transaction->total_price,
                 'currency_code' => $transaction->currency_symbol,
+                'package_id' => $transaction->package_id,
+                'package' => isset($package) ? $package->title : '',
                 'lines' => []
             ];
             foreach($order_lines as $line)
             {
-                $package = DB::table('package')->where('id', $line->pid)->first();
                 $addon = DB::table('addons')->where('id', $line->addon_id)->first();
                 $data = [
                     'line_id' => $line->id,
-                    'package_id' => $line->pid,
-                    'package' => isset($package) ? $package->title : '',
                     'addon_id' => $line->addon_id,
                     'addon' => isset($addon) ? $addon->title : '',
                     'quantity' => $line->quantity,
@@ -149,19 +138,60 @@ class CardController extends Controller
         $lines = $request->packages;
         $order_id = $request->order_id;
         $transaction = Order::find($order_id);
-        $transaction->total_price = $request->final_total;
+        $addon_price = $input['quantity'] * $input['amount'];
+        $transaction->total_price = $addon_price + $transaction->total_price;
         $transaction->save();
-        if(isset($request->line_id))
+        
+        if (isset($input['line_id'])) 
         {
-                $order_line = OrderPackage::find($request->line_id);
-                $order_line->quantity = $request->quantity;
-                $order_line->save();
+            $package = OrderPackage::find($input['line_id']); 
         }
+        else
+        {
+            $package = new OrderPackage();
+        }
+            
+        $package->oid = $transaction->id;
+        $package->pid = $transaction->package_id;
+        $package->addon_id = $input['addon_id'];
+        $package->quantity = $input['quantity'];
+        $package->price = $input['amount'];
+        $package->save();
 
+        $lines = [];
+        if(isset($transaction))
+        {
+            $order_lines = OrderPackage::where('oid', $transaction->id)->get();
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
+            $lines = [
+                'order_id' => $transaction->id,
+                'total' => (string)$transaction->total_price,
+                'currency_code' => $transaction->currency_symbol,
+                'package_id' => $transaction->package_id,
+                'package' => isset($package) ? $package->title : '',
+                'lines' => []
+            ];
+            foreach($order_lines as $line)
+            {
+                $addon = DB::table('addons')->where('id', $line->addon_id)->first();
+                $data = [
+                    'line_id' => $line->id,
+                    'addon_id' => $line->addon_id,
+                    'addon' => isset($addon) ? $addon->title : '',
+                    'quantity' => $line->quantity,
+                    'price' => (string)$line->price ?? "0,00",
+                ];
+
+                array_push($lines['lines'], $data);
+               
+
+            }
+        }
         return response()->json([
             'http_status' => 200,
             'http_status_message' => 'Success',
             'transaction_id' => $transaction->id,
+            'data' => $lines,
             'message' => 'Success Updated',
         ], 200);
     }
@@ -196,9 +226,10 @@ class CardController extends Controller
         ], 404);
     }
 
-    public function clear($id)
+    public function clear(Request $request)
     {
-        $order = Order::find($id);
+        $user = auth()->user()->id;
+        $order = Order::where('order_status', 3)->where('uid', $user)->first();
         if(isset($order))
         {
             $lines = OrderPackage::where('oid', $order->id)->delete();
@@ -227,7 +258,6 @@ class CardController extends Controller
         {
             $transaction->order_status = '1';
             $transaction->payment_status = 'paid';
-            $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
     
             $transaction->save();
             $packages = $input['packages'];
@@ -241,7 +271,7 @@ class CardController extends Controller
                     $package = new OrderPackage();
                 }
                 $package->oid = $transaction->id;
-                $package->pid = $product['package_id'];
+                $package->pid = $transaction->package_id;
                 $package->addon_id = $product['addon_id'];
                 $package->quantity = $product['quantity'];
                 $package->price = $product['amount'];
@@ -270,7 +300,6 @@ class CardController extends Controller
         {
             $transaction->order_status = '1';
             $transaction->payment_status = 'paid';
-            $transaction->total_price = $request->final_total ? $request->final_total : $transaction->total_price;
     
             $transaction->save();
             $packages = $input['packages'];
@@ -284,7 +313,7 @@ class CardController extends Controller
                     $package = new OrderPackage();
                 }
                 $package->oid = $transaction->id;
-                $package->pid = $product['package_id'];
+                $package->pid = $transaction->package_id;
                 $package->addon_id = $product['addon_id'];
                 $package->quantity = $product['quantity'];
                 $package->price = $product['amount'];
