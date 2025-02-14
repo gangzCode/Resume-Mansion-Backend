@@ -260,15 +260,12 @@ class CardController extends Controller
             $transaction->payment_status = 'paid';
             $transaction->coupon = $request->coupon_id;
             $transaction->save();
-            $packages = $input['packages'];
+            $packages = $request->packages;
             $total = 0;
             foreach ($packages ?? [] as $pr => $product) {
                 $addon = Addon::find($product['addon_id']);
-                if(isset($product['line_id']))
-                {
-                    $package = OrderPackage::find($product['line_id']);
-                }
-                else
+                $package = OrderPackage::where('addon_id', $product['addon_id'])->where('oid', $transaction->id)->first();
+                if(!isset($package))
                 {
                     $package = new OrderPackage();
                 }
@@ -316,15 +313,12 @@ class CardController extends Controller
             $transaction->payment_status = 'paid';
             $transaction->coupon = $request->coupon_id;
             $transaction->save();
-            $packages = $input['packages'];
+            $packages = $request->packages;
             $total = 0;
             foreach ($packages ?? [] as $pr => $product) {
                 $addon = Addon::find($product['addon_id']);
-                if(isset($product['line_id']))
-                {
-                    $package = OrderPackage::find($product['line_id']);
-                }
-                else
+                $package = OrderPackage::where('addon_id', $product['addon_id'])->where('oid', $transaction->id)->first();
+                if(!isset($package))
                 {
                     $package = new OrderPackage();
                 }
