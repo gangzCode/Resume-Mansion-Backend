@@ -104,6 +104,7 @@ class CardController extends Controller
                     'line_id' => $line->id,
                     'addon_id' => $line->addon_id,
                     'addon' => isset($addon) ? $addon->title : '',
+                    'description' => isset($addon) ? $addon->description : '',
                     'quantity' => $line->quantity,
                     'price' => (string)$line->price ?? "0,00",
                 ];
@@ -177,6 +178,7 @@ class CardController extends Controller
                     'line_id' => $line->id,
                     'addon_id' => $line->addon_id,
                     'addon' => isset($addon) ? $addon->title : '',
+                    'description' => isset($addon) ? $addon->description : '',
                     'quantity' => $line->quantity,
                     'price' => (string)$line->price ?? "0,00",
                 ];
