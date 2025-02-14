@@ -201,31 +201,67 @@ class CardController extends Controller
     {
         $line = OrderPackage::find($id);
         
-        if(isset($line))
-        {
-            $order_id = $line->oid;
-            $order = Order::find($order_id);
-            $lines = OrderPackage::where('oid', $order_id)->count();
-            if($lines == 1)
-            {
-                $order->delete();
-            }
-            $line->delete();
-
+        if (!$line) {
             return response()->json([
-                'http_status' => 200,
-                'http_status_message' => 'Success',
-                'message' => 'Success Deleted',
-            ], 200);
+                'http_status' => 404,
+                'http_status_message' => 'warning',
+                'message' => 'Bad Request',
+            ], 404);
+        }
 
+        $order_id = $line->oid;
+        $order = Order::find($order_id);
+
+        if ($order) {
+            // Reduce total price when removing an add-on
+            $order->total_price -= ($line->quantity * $line->price);
+            $order->save();
+        }
+
+        // Delete the specific add-on line
+        $line->delete();
+
+        // Check if there are any remaining add-ons in the order
+        $remainingLines = OrderPackage::where('oid', $order_id)->count();
+
+        // If no add-ons remain, set `lines` to an empty array but keep the order
+        $lines = [];
+        if ($remainingLines > 0) {
+            $order_lines = OrderPackage::where('oid', $order_id)->get();
+            $package = DB::table('package')->where('id', $order->package_id)->first();
+
+            $lines = [
+                'order_id' => $order->id,
+                'total' => (string)$order->total_price,
+                'currency_code' => $order->currency_symbol,
+                'package_id' => $order->package_id,
+                'package' => isset($package) ? $package->title : '',
+                'lines' => []
+            ];
+
+            foreach ($order_lines as $orderLine) {
+                $addon = DB::table('addons')->where('id', $orderLine->addon_id)->first();
+                $data = [
+                    'line_id' => $orderLine->id,
+                    'addon_id' => $orderLine->addon_id,
+                    'addon' => isset($addon) ? $addon->title : '',
+                    'description' => isset($addon) ? $addon->description : '',
+                    'quantity' => $orderLine->quantity,
+                    'price' => (string)$orderLine->price ?? "0,00",
+                ];
+
+                array_push($lines['lines'], $data);
+            }
         }
 
         return response()->json([
-            'http_status' => 404,
-            'http_status_message' => 'warning',
-            'message' => 'Bad Request',
-        ], 404);
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'message' => 'Success Deleted',
+            'data' => $lines, // Send updated lines array
+        ], 200);
     }
+
 
     public function clear(Request $request)
     {
