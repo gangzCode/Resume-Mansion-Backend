@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use DB;
 use App\Models\Order;
 use App\Models\OrderPackage;
+use App\Models\Addon;
 class CardController extends Controller
 {
     public function getCoupon(Request $request)
@@ -150,12 +151,13 @@ class CardController extends Controller
         {
             $package = new OrderPackage();
         }
+        $addon = Addon::find($input['addon_id']);
             
         $package->oid = $transaction->id;
         $package->pid = $transaction->package_id;
         $package->addon_id = $input['addon_id'];
         $package->quantity = $input['quantity'];
-        $package->price = $input['amount'];
+        $package->price = $addon->price;
         $package->save();
 
         $lines = [];
@@ -254,6 +256,7 @@ class CardController extends Controller
         $order_id = $request->order_id;
         $user = auth()->user()->id;
         $transaction = Order::find($order_id);
+       
         if(isset($transaction))
         {
             $transaction->order_status = '1';
@@ -262,6 +265,7 @@ class CardController extends Controller
             $transaction->save();
             $packages = $input['packages'];
             foreach ($packages ?? [] as $pr => $product) {
+                $addon = Addon::find($product['addon_id']);
                 if(isset($product['line_id']))
                 {
                     $package = OrderPackage::find($product['line_id']);
@@ -274,7 +278,7 @@ class CardController extends Controller
                 $package->pid = $transaction->package_id;
                 $package->addon_id = $product['addon_id'];
                 $package->quantity = $product['quantity'];
-                $package->price = $product['amount'];
+                $package->price = $addon->price;
                 $package->save();
                 
             }
@@ -304,6 +308,7 @@ class CardController extends Controller
             $transaction->save();
             $packages = $input['packages'];
             foreach ($packages ?? [] as $pr => $product) {
+                $addon = Addon::find($product['addon_id']);
                 if(isset($product['line_id']))
                 {
                     $package = OrderPackage::find($product['line_id']);
@@ -316,7 +321,7 @@ class CardController extends Controller
                 $package->pid = $transaction->package_id;
                 $package->addon_id = $product['addon_id'];
                 $package->quantity = $product['quantity'];
-                $package->price = $product['amount'];
+                $package->price = $addon->price;
                 $package->save();
                 
             }
