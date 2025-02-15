@@ -62,6 +62,8 @@ class CardController extends Controller
         if(isset($transaction))
         {
             OrderPackage::where('oid', $transaction->id)->delete();
+            $transaction->total_price = 0;
+            $transaction->save();
         }
         
         $transaction->uid = $user;
@@ -214,6 +216,9 @@ class CardController extends Controller
         
         if(isset($line))
         {
+            $order_id = $line->oid;
+           $order = Order::find($order_id);
+           $order->total_paid = $order->total_paid - $line->price;
             
             $line->delete();
 
