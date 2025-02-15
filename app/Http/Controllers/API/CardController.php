@@ -217,9 +217,10 @@ class CardController extends Controller
         if(isset($line))
         {
             $order_id = $line->oid;
+            $line_price = $line->price * $line->quantity;
            $order = Order::find($order_id);
-           $order->total_paid = $order->total_paid - $line->price;
-            
+           $order->total_price = $order->total_price - $line_price;
+           $order->save();
             $line->delete();
 
             return response()->json([
