@@ -51,8 +51,19 @@ class CardController extends Controller
         
         $user = auth()->user()->id;
         $input['location_id'] = 1;
+        $transaction = Order::where('order_status', 3)->where('uid', $user)->first();
         $package = DB::table('package')->where('id', $input['package_id'])->first();
-        $transaction = new Order();
+        if(!isset($transaction))
+        {
+           
+            $transaction = new Order();
+
+        }
+        if(isset($transaction))
+        {
+            OrderPackage::where('oid', $transaction->id)->delete();
+        }
+        
         $transaction->uid = $user;
         $transaction->package_id = $input['package_id'];
         $transaction->added_by = $user;
@@ -203,13 +214,7 @@ class CardController extends Controller
         
         if(isset($line))
         {
-            $order_id = $line->oid;
-            $order = Order::find($order_id);
-            $lines = OrderPackage::where('oid', $order_id)->count();
-            if($lines == 1)
-            {
-                $order->delete();
-            }
+            
             $line->delete();
 
             return response()->json([
