@@ -8,6 +8,7 @@ use DB;
 use App\Models\Order;
 use App\Models\OrderPackage;
 use App\Models\Addon;
+use Stripe;
 class CardController extends Controller
 {
     public function getCoupon(Request $request)
@@ -269,8 +270,8 @@ class CardController extends Controller
        
         if(isset($transaction))
         {
-            $transaction->order_status = '1';
-            $transaction->payment_status = 'paid';
+            // $transaction->order_status = '1';
+            // $transaction->payment_status = 'paid';
             $transaction->coupon = $request->coupon_id;
             $transaction->save();
             $packages = $request->packages;
@@ -302,6 +303,22 @@ class CardController extends Controller
             
             $transaction->total_price = $sub_total;
             $transaction->save();
+            if($request->stripeToken)
+            {
+                Stripe\Stripe::setApiKey('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
+      
+                Stripe\Charge::create ([
+                        "amount" => $transaction->total_price * 100,
+                        "currency" => "usd",
+                        "source" => $request->stripeToken,
+                        "description" => "resume solution" 
+                ]);
+
+                $transaction->order_status = '1';
+                $transaction->payment_status = 'paid';
+                $transaction->save();
+            }
+            
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
@@ -322,8 +339,7 @@ class CardController extends Controller
         $transaction = Order::find($order_id);
         if(isset($transaction))
         {
-            $transaction->order_status = '1';
-            $transaction->payment_status = 'paid';
+            
             $transaction->coupon = $request->coupon_id;
             $transaction->save();
             $packages = $request->packages;
@@ -355,6 +371,22 @@ class CardController extends Controller
             
             $transaction->total_price = $sub_total;
             $transaction->save();
+            if($request->stripeToken)
+            {
+                Stripe\Stripe::setApiKey('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
+      
+                Stripe\Charge::create ([
+                        "amount" => $transaction->total_price * 100,
+                        "currency" => "usd",
+                        "source" => $request->stripeToken,
+                        "description" => "resume solution" 
+                ]);
+
+                $transaction->order_status = '1';
+                $transaction->payment_status = 'paid';
+                $transaction->save();
+            }
+            
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',

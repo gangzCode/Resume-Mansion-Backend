@@ -8,10 +8,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Passport\HasApiTokens;
+use Laravel\Cashier\Billable;
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
     use HasApiTokens;
+    use Billable;
     /**
      * The attributes that are mass assignable.
      *
