@@ -342,27 +342,8 @@ class CardController extends Controller
             
             $transaction->coupon = $request->coupon_id;
             $transaction->save();
-            $packages = $request->packages;
-            $total = 0;
-            foreach ($packages ?? [] as $pr => $product) {
-                $addon = Addon::find($product['addon_id']);
-                $package = OrderPackage::where('addon_id', $product['addon_id'])->where('oid', $transaction->id)->first();
-                if(!isset($package))
-                {
-                    $package = new OrderPackage();
-                }
-                $package->oid = $transaction->id;
-                $package->pid = $transaction->package_id;
-                $package->addon_id = $product['addon_id'];
-                $package->quantity = $product['quantity'];
-                $package->price = $addon->price;
-                $package->save();
-
-                $total += $addon->price;
-            }
-
-            $package = DB::table('package')->where('id', $transaction->package_id)->first();
-            $sub_total = $package->price + $total;
+           
+            $sub_total = $transaction->total_price;
             if(isset($request->coupon_id))
             {
                 $coupon = DB::table('coupon')->where('id', $request->coupon_id)->first();
@@ -371,26 +352,57 @@ class CardController extends Controller
             
             $transaction->total_price = $sub_total;
             $transaction->save();
-            if($request->stripeToken)
+            if($request->payment_method_id)
             {
-                Stripe\Stripe::setApiKey('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
-      
-                Stripe\Charge::create ([
-                        "amount" => $transaction->total_price * 100,
-                        "currency" => "usd",
-                        "source" => $request->stripeToken,
-                        "description" => "resume solution" 
+                $stripe = new \Stripe\StripeClient('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
+       
+                $stripe->paymentIntents->create([
+                'amount' => $transaction->total_price * 100,
+                'currency' => 'usd',
+                'payment_method_types' => ['card'],
+                'payment_method' => $request->payment_method_id,
+                'confirm' => true,
                 ]);
 
                 $transaction->order_status = '1';
                 $transaction->payment_status = 'paid';
                 $transaction->save();
             }
-            
+            $lines = [];
+            if(isset($transaction))
+            {
+                $order_lines = OrderPackage::where('oid', $transaction->id)->get();
+                $package = DB::table('package')->where('id', $transaction->package_id)->first();
+                $lines = [
+                    'order_id' => $transaction->id,
+                    'total' => (string)$transaction->total_price,
+                    'currency_code' => $transaction->currency_symbol,
+                    'package_id' => $transaction->package_id,
+                    'package' => isset($package) ? $package->title : '',
+                    'lines' => []
+                ];
+                foreach($order_lines as $line)
+                {
+                    $addon = DB::table('addons')->where('id', $line->addon_id)->first();
+                    $data = [
+                        'line_id' => $line->id,
+                        'addon_id' => $line->addon_id,
+                        'addon' => isset($addon) ? $addon->title : '',
+                        'description' => isset($addon) ? $addon->description : '',
+                        'quantity' => $line->quantity,
+                        'price' => (string)$line->price ?? "0,00",
+                    ];
+
+                    array_push($lines['lines'], $data);
+                
+
+                }
+            }
             return response()->json([
                 'http_status' => 200,
                 'http_status_message' => 'Success',
                 'message' => 'Added Successfully',
+                'data'=> $lines,
             ], 200);
         }
         return response()->json([
