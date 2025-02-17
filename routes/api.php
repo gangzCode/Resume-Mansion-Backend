@@ -65,5 +65,7 @@ Route::middleware(['auth:api'])->group(function(){
         Route::put('placeorder', 'placeOrder');
         Route::post('cart/place-order', 'post');
         Route::get('previous-orders', 'getPrevious');
+        Route::get('current-order', 'currentOrder');
+        Route::put('current-order-update', 'updateCurrentOrder');
     });
 });

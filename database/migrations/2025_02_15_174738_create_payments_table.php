@@ -13,16 +13,8 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->string('customer_name', 100);
-            $table->string('email', 50);
-            $table->string('address_one', 100);
-            $table->string('address_two', 100);
-            $table->string('shipping_address_check', 20);
-            $table->string('shipping_address', 200)->nullable();
-
-            $table->decimal('amount', 10);
-            $table->enum('status', array('Progress','Complete'))->default('Progress');
-
+            $table->integer('order_id')->unsigned();
+            $table->decimal('amount', 20,2);
             $table->timestamps();
         });
     }

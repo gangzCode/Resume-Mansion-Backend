@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderPackage;
 use App\Models\Addon;
 use Stripe;
+use App\Models\Payment;
 class CardController extends Controller
 {
     public function getCoupon(Request $request)
@@ -337,7 +338,7 @@ class CardController extends Controller
         $order_id = $request->order_id;
         $user = auth()->user()->id;
         $transaction = Order::find($order_id);
-        if(isset($transaction))
+        if(isset($transaction) && $transaction->payment_status !== 'paid')
         {
             
             $transaction->coupon = $request->coupon_id;
@@ -352,12 +353,15 @@ class CardController extends Controller
             
             $transaction->total_price = $sub_total;
             $transaction->save();
+
+            $paid = Payment::where('order_id', $transaction->id)->sum('amount');
+            $due = $transaction->total_price - $paid;
             if($request->payment_method_id)
             {
                 $stripe = new \Stripe\StripeClient('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
        
                 $stripe->paymentIntents->create([
-                'amount' => $transaction->total_price * 100,
+                'amount' => $due * 100,
                 'currency' => 'usd',
                 'payment_method_types' => ['card'],
                 'payment_method' => $request->payment_method_id,
@@ -367,6 +371,11 @@ class CardController extends Controller
                 $transaction->order_status = '1';
                 $transaction->payment_status = 'paid';
                 $transaction->save();
+
+                $payment = new Payment();
+                $payment->order_id = $transaction->id; 
+                $payment->amount = $due;
+                $payment->save();
             }
             $lines = [];
             if(isset($transaction))
@@ -419,7 +428,7 @@ class CardController extends Controller
         $orders = [];
         foreach($transactions as $transaction)
         {
-            $order_lines = OrderPackage::where('oid', $transaction->id)->unique()->pluck('pid')->toArray();
+            $order_lines = OrderPackage::where('oid', $transaction->id)->distinct()->pluck('pid')->toArray();
             $package = DB::table('package')->whereIn('id', $order_lines)->first();
             $status =DB::table('order_setps')->where('id', $transaction->order_status)->first();
            
@@ -436,6 +445,112 @@ class CardController extends Controller
             'http_status' => 200,
             'http_status_message' => 'Success',
             'data'=> $orders
+        ], 200);
+    }
+
+    public function currentOrder()
+    {
+        $user = auth()->user()->id;
+        $transaction = Order::orderBy('id', 'DESC')->whereIn('order_status', [1,2,3,5])->where('uid', $user)->first();
+
+        $lines = [];
+        if(isset($transaction))
+        {
+            $order_lines = OrderPackage::where('oid', $transaction->id)->get();
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
+            $lines = [
+                'order_id' => $transaction->id,
+                'total' => (string)$transaction->total_price,
+                'currency_code' => $transaction->currency_symbol,
+                'package_id' => $transaction->package_id,
+                'package' => isset($package) ? $package->title : '',
+                'lines' => []
+            ];
+            foreach($order_lines as $line)
+            {
+                $addon = DB::table('addons')->where('id', $line->addon_id)->first();
+                $data = [
+                    'line_id' => $line->id,
+                    'addon_id' => $line->addon_id,
+                    'addon' => isset($addon) ? $addon->title : '',
+                    'description' => isset($addon) ? $addon->description : '',
+                    'quantity' => $line->quantity,
+                    'price' => (string)$line->price ?? "0,00",
+                ];
+
+                array_push($lines['lines'], $data);
+            
+
+            }
+        }
+        return response()->json([
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'message' => 'Success',
+            'data'=> $lines,
+        ], 200);
+    }
+
+    public function updateCurrentOrder(Request $request)
+    {
+        $input = $request->except('_token');
+        $order_id = $request->order_id;
+        $addon = Addon::find($input['addon_id']);
+        $transaction = Order::find($order_id);
+        $addon_price = $input['quantity'] * $addon->price;
+        $transaction->total_price = $addon_price + $transaction->total_price;
+        $transaction->payment_status = 'partial';
+        $transaction->save();
+        $package = OrderPackage::where('addon_id', $input['addon_id'])->where('oid', $order_id)->first();
+        if (!isset($package))
+        {
+            $package = new OrderPackage();
+        }
+        
+            
+        $package->oid = $transaction->id;
+        $package->pid = $transaction->package_id;
+        $package->addon_id = $input['addon_id'];
+        $package->quantity = $input['quantity'];
+        $package->price = $addon->price;
+        $package->save();
+
+        $lines = [];
+        if(isset($transaction))
+        {
+            $order_lines = OrderPackage::where('oid', $transaction->id)->get();
+            $package = DB::table('package')->where('id', $transaction->package_id)->first();
+            $lines = [
+                'order_id' => $transaction->id,
+                'total' => (string)$transaction->total_price,
+                'currency_code' => $transaction->currency_symbol,
+                'package_id' => $transaction->package_id,
+                'package' => isset($package) ? $package->title : '',
+                'lines' => []
+            ];
+            foreach($order_lines as $line)
+            {
+                $addon = DB::table('addons')->where('id', $line->addon_id)->first();
+                $data = [
+                    'line_id' => $line->id,
+                    'addon_id' => $line->addon_id,
+                    'addon' => isset($addon) ? $addon->title : '',
+                    'description' => isset($addon) ? $addon->description : '',
+                    'quantity' => $line->quantity,
+                    'price' => (string)$line->price ?? "0,00",
+                ];
+
+                array_push($lines['lines'], $data);
+               
+
+            }
+        }
+        return response()->json([
+            'http_status' => 200,
+            'http_status_message' => 'Success',
+            'transaction_id' => $transaction->id,
+            'data' => $lines,
+            'message' => 'Success Updated',
         ], 200);
     }
 }
