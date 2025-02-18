@@ -514,6 +514,29 @@ class CardController extends Controller
         $package->quantity = $input['quantity'];
         $package->price = $addon->price;
         $package->save();
+        $paid = Payment::where('order_id', $transaction->id)->sum('amount');
+        $due = $transaction->total_price - $paid;
+        if($request->payment_method_id)
+        {
+            $stripe = new \Stripe\StripeClient('sk_test_51Qt02JBCCDTvPwlcRtuXqMvXZcazjopgRKlk9DmNg7j7r6M7l6mzKJ9PVDvw2tGqdNaEnB7OvUbovNfMTfdfqSod000eRy8R9E');
+    
+            $stripe->paymentIntents->create([
+            'amount' => $due * 100,
+            'currency' => 'usd',
+            'payment_method_types' => ['card'],
+            'payment_method' => $request->payment_method_id,
+            'confirm' => true,
+            ]);
+
+            $transaction->order_status = '1';
+            $transaction->payment_status = 'paid';
+            $transaction->save();
+
+            $payment = new Payment();
+            $payment->order_id = $transaction->id; 
+            $payment->amount = $due;
+            $payment->save();
+        }
 
         $lines = [];
         if(isset($transaction))
