@@ -451,7 +451,7 @@ class CardController extends Controller
     public function currentOrder()
     {
         $user = auth()->user()->id;
-        $transaction = Order::orderBy('id', 'DESC')->whereIn('order_status', [1,2,3,5])->where('uid', $user)->first();
+        $transaction = Order::orderBy('id', 'DESC')->whereIn('order_status', [1])->where('uid', $user)->first();
 
         $lines = [];
         if(isset($transaction))
